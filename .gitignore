@@ -1,0 +1,27 @@
+# Environment
+.env
+*.env.local
+
+# Claude Code local settings
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
