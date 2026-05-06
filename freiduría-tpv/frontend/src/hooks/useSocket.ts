@@ -9,7 +9,13 @@ export function useSocket(room: DeviceRoom, handlers: Record<string, (data: any)
   handlersRef.current = handlers;
 
   useEffect(() => {
-    const socket = io({ query: { room } });
+    // En dev: path = '/socket.io' (proxy Vite)
+    // En prod: path = '/fryshop/socket.io' (Caddy strip → /socket.io en backend)
+    const basePath = import.meta.env.VITE_BASE_PATH ?? '';
+    const socket = io({
+      path: `${basePath}/socket.io`,
+      query: { room },
+    });
     socketRef.current = socket;
 
     Object.entries(handlersRef.current).forEach(([event, handler]) => {

@@ -1,0 +1,17 @@
+# Añade este bloque a tu Caddyfile existente en el VPS
+# Si ya tienes un bloque para byalboroto.duckdns.org, añade solo el `route` dentro de él
+
+byalboroto.duckdns.org {
+
+  # Redirige /fryshop → /fryshop/ si acceden sin barra final
+  redir /fryshop /fryshop/ 301
+
+  # Strip /fryshop y proxy al contenedor Express (puerto 3001)
+  # handle_path elimina el prefijo antes de pasar la petición al backend
+  # El backend recibe /api/..., /socket.io, / — sin el prefijo /fryshop
+  handle_path /fryshop/* {
+    reverse_proxy localhost:3001
+  }
+
+  # Si tienes otras apps en este dominio, déjalas fuera de este bloque
+}

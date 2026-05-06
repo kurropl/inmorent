@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // base se lee de VITE_BASE_PATH en build time (set en .env.production)
+  base: process.env.VITE_BASE_PATH || '/',
   server: {
     port: 5173,
     proxy: {
