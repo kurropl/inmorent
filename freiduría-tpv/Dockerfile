@@ -23,6 +23,15 @@ RUN npm ci
 COPY backend/ .
 RUN npx prisma generate
 RUN npm run build
+# Compile seed separately (rootDir is '.' to include prisma/)
+RUN npx tsc prisma/seed.ts \
+    --rootDir . \
+    --outDir dist-seed \
+    --module commonjs \
+    --target ES2020 \
+    --moduleResolution node \
+    --esModuleInterop true \
+    --skipLibCheck
 
 # ── Stage 3: Production runtime ──────────────────────────────────────────────
 FROM node:20-alpine AS production
@@ -33,8 +42,9 @@ COPY --from=backend-builder /build/backend/package*.json ./
 COPY --from=backend-builder /build/backend/prisma ./prisma
 RUN npm ci --omit=dev && npx prisma generate
 
-# Código compilado del backend
+# Código compilado del backend y seed
 COPY --from=backend-builder /build/backend/dist ./dist
+COPY --from=backend-builder /build/backend/dist-seed/prisma/seed.js ./prisma/seed.js
 
 # Archivos estáticos del frontend (Express los sirve desde /app/public)
 COPY --from=frontend-builder /build/frontend/dist ./public
