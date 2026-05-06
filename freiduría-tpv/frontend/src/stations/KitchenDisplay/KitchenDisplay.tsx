@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { StationHeader } from '../../components/StationHeader';
 import { useSocket } from '../../hooks/useSocket';
 import type { Order, OrderItem } from '../../types';
 
@@ -8,6 +7,7 @@ type TicketItem = OrderItem & { tableNumber: number; orderId: string };
 
 function ElapsedTimer({ since }: { since: string }) {
   const [elapsed, setElapsed] = useState(0);
+
   useEffect(() => {
     const start = new Date(since).getTime();
     const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
@@ -22,11 +22,12 @@ function ElapsedTimer({ since }: { since: string }) {
   const warning = elapsed > 120;
 
   return (
-    <span className={`font-mono text-xs tabular-nums px-1.5 py-0.5 rounded ${
-      urgent ? 'bg-red-900/50 text-red-300' :
-      warning ? 'bg-yellow-900/50 text-yellow-300' :
-      'bg-zinc-700 text-zinc-400'
+    <span className={`inline-flex items-center gap-1 font-mono text-xs tabular-nums px-2 py-0.5 rounded-full font-medium ${
+      urgent ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+      warning ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+      'bg-zinc-700 text-zinc-400 border border-zinc-600/50'
     }`}>
+      {urgent ? '🔴' : warning ? '🟡' : '🟢'}
       {mins}:{secs.toString().padStart(2, '0')}
     </span>
   );
@@ -44,70 +45,126 @@ export function KitchenDisplay({ orders, onRefresh }: Props) {
       .map(i => ({ ...i, tableNumber: order.tableNumber, orderId: order.id }))
   ).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  const pending = tickets.filter(t => t.status === 'PENDING').length;
+  const pendingCount = tickets.filter(t => t.status === 'PENDING').length;
+  const weighedCount = tickets.filter(t => t.status === 'WEIGHED').length;
+
+  // Group tickets by table
+  const byTable = tickets.reduce<Record<number, TicketItem[]>>((acc, item) => {
+    acc[item.tableNumber] = [...(acc[item.tableNumber] ?? []), item];
+    return acc;
+  }, {});
 
   return (
-    <div className="flex flex-col h-full">
-      <StationHeader
-        title="Cocina"
-        subtitle={pending > 0 ? `${pending} pendiente${pending !== 1 ? 's' : ''}` : 'Todo al día ✓'}
-        color="text-red-400"
-        icon="🔥"
-      />
+    <div className="flex flex-col h-full bg-zinc-950">
+      {/* Header */}
+      <div className="flex-none bg-zinc-900 border-b border-zinc-800 px-4 py-2.5 flex items-center gap-2">
+        <span className="text-base">🔥</span>
+        <span className="font-semibold text-sm text-white">Cocina</span>
+        <div className="ml-auto flex items-center gap-2">
+          {pendingCount > 0 && (
+            <span className="text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30 rounded-full px-2.5 py-0.5">
+              {pendingCount} pendiente{pendingCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {weighedCount > 0 && (
+            <span className="text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full px-2.5 py-0.5">
+              {weighedCount} listo{weighedCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {tickets.length === 0 && (
+            <span className="text-xs text-emerald-400 font-medium">✓ Todo al día</span>
+          )}
+        </div>
+      </div>
 
-      <div className="flex-1 overflow-auto p-3 space-y-2">
-        {tickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 gap-2 text-zinc-500">
-            <span className="text-4xl">✅</span>
-            <span className="text-sm">Sin comandas pendientes</span>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {Object.keys(byTable).length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-600">
+            <div className="w-16 h-16 bg-zinc-800 rounded-2xl flex items-center justify-center text-3xl">✅</div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-zinc-400">Sin comandas pendientes</p>
+              <p className="text-xs text-zinc-600 mt-1">Cocina lista para nuevos pedidos</p>
+            </div>
           </div>
         ) : (
-          tickets.map(item => (
-            <div
-              key={item.id}
-              className={[
-                'rounded-xl border p-3 transition-all',
-                item.status === 'WEIGHED'
-                  ? 'border-green-600/60 bg-green-900/10'
-                  : item.product.isWeighed
-                  ? 'border-orange-600/60 bg-orange-900/10'
-                  : 'border-brand-border bg-brand-surface',
-              ].join(' ')}
-            >
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold bg-orange-900/50 text-orange-300 rounded px-2 py-0.5">
-                    Mesa {item.tableNumber}
-                  </span>
-                  <ElapsedTimer since={item.createdAt} />
-                  {item.product.isWeighed && (
-                    <span className="text-xs bg-purple-900/40 text-purple-300 rounded px-1.5 py-0.5">
-                      ⚖️ Pesar
+          Object.entries(byTable).map(([tableNum, items]) => {
+            const hasUrgent = items.some(i => {
+              const elapsed = (Date.now() - new Date(i.createdAt).getTime()) / 1000;
+              return elapsed > 300;
+            });
+            const hasWarning = !hasUrgent && items.some(i => {
+              const elapsed = (Date.now() - new Date(i.createdAt).getTime()) / 1000;
+              return elapsed > 120;
+            });
+            const oldestItem = items.reduce((oldest, i) =>
+              new Date(i.createdAt) < new Date(oldest.createdAt) ? i : oldest
+            );
+
+            return (
+              <div
+                key={tableNum}
+                className={[
+                  'rounded-2xl border overflow-hidden',
+                  hasUrgent ? 'border-red-500/40' :
+                  hasWarning ? 'border-amber-500/40' :
+                  'border-zinc-800',
+                ].join(' ')}
+              >
+                {/* Ticket header */}
+                <div className={[
+                  'flex items-center justify-between px-4 py-2.5',
+                  hasUrgent ? 'bg-red-500/10' :
+                  hasWarning ? 'bg-amber-500/10' :
+                  'bg-zinc-900',
+                ].join(' ')}>
+                  <div className="flex items-center gap-2.5">
+                    <span className={`text-xl font-black ${
+                      hasUrgent ? 'text-red-300' :
+                      hasWarning ? 'text-amber-300' :
+                      'text-orange-400'
+                    }`}>
+                      Mesa {tableNum}
                     </span>
-                  )}
+                    <ElapsedTimer since={oldestItem.createdAt} />
+                  </div>
+                  <span className="text-xs text-zinc-500">{items.length} ítem{items.length !== 1 ? 's' : ''}</span>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${
-                  item.status === 'WEIGHED' ? 'bg-green-900 text-green-300' :
-                  item.status === 'SERVED' ? 'bg-zinc-700 text-zinc-400' :
-                  'bg-zinc-700 text-zinc-300'
-                }`}>
-                  {item.status === 'WEIGHED' ? '✓ Pesado' :
-                   item.status === 'SERVED' ? 'Servido' : 'Pendiente'}
-                </span>
+
+                {/* Items */}
+                <div className="bg-zinc-950 divide-y divide-zinc-800/60">
+                  {items.map(item => (
+                    <div key={item.id} className="flex items-center gap-3 px-4 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-white">{item.product.name}</span>
+                          {item.product.isWeighed && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/20 font-bold">
+                              ⚖️ PESAR
+                            </span>
+                          )}
+                        </div>
+                        {item.product.isWeighed && (
+                          <p className="text-xs text-zinc-500 mt-0.5">
+                            Pedido: <span className="text-amber-300 font-medium">~{item.estimatedWeightGrams}g</span>
+                            {item.finalWeightGrams != null && (
+                              <span className="text-emerald-400 font-medium ml-2">Real: {item.finalWeightGrams}g ✓</span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      <span className={`flex-none text-xs font-bold px-2.5 py-1 rounded-full ${
+                        item.status === 'WEIGHED'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700/50'
+                      }`}>
+                        {item.status === 'WEIGHED' ? '✓ Pesado' : 'En cocina'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-
-              <p className="font-semibold text-white">{item.product.name}</p>
-
-              {item.product.isWeighed && (
-                <div className="mt-1 text-xs text-zinc-400 flex gap-3">
-                  <span>Pedido: <span className="text-yellow-300">~{item.estimatedWeightGrams}g</span></span>
-                  {item.finalWeightGrams && (
-                    <span>Real: <span className="text-green-300 font-medium">{item.finalWeightGrams}g</span></span>
-                  )}
-                </div>
-              )}
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

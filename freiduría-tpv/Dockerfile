@@ -21,10 +21,10 @@ COPY backend/package*.json ./
 RUN npm ci
 
 COPY backend/ .
-RUN npx prisma generate
+RUN ./node_modules/.bin/prisma generate
 RUN npm run build
 # Compile seed separately (rootDir is '.' to include prisma/)
-RUN npx tsc prisma/seed.ts \
+RUN ./node_modules/.bin/tsc prisma/seed.ts \
     --rootDir . \
     --outDir dist-seed \
     --module commonjs \
@@ -40,7 +40,7 @@ WORKDIR /app
 # Instala solo deps de producción y regenera Prisma client
 COPY --from=backend-builder /build/backend/package*.json ./
 COPY --from=backend-builder /build/backend/prisma ./prisma
-RUN npm ci --omit=dev && npx prisma generate
+RUN npm ci --omit=dev && ./node_modules/.bin/prisma generate
 
 # Código compilado del backend y seed
 COPY --from=backend-builder /build/backend/dist ./dist
