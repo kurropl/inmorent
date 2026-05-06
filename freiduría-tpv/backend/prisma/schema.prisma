@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductDestination {
+  BAR
+  KITCHEN
+}
+
+enum OrderItemStatus {
+  PENDING
+  WEIGHED
+  SERVED
+}
+
+enum OrderStatus {
+  OPEN
+  CLOSED
+  PAID
+}
+
+model Product {
+  id          String             @id @default(cuid())
+  name        String
+  category    String
+  destination ProductDestination
+  isWeighed   Boolean            @default(false)
+  pricePerKg  Int?
+  priceFixed  Int?
+  imageUrl    String?
+  active      Boolean            @default(true)
+  orderItems  OrderItem[]
+  createdAt   DateTime           @default(now())
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  tableNumber Int
+  status      OrderStatus @default(OPEN)
+  items       OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  pricePerKg           Int?
+  priceFixed           Int?
+  estimatedWeightGrams Int?
+  finalWeightGrams     Int?
+  status    OrderItemStatus @default(PENDING)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
