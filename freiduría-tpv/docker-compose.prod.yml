@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_BASE_PATH: /fryshop
+        VITE_BASE_PATH: /freiduria
     ports:
       - "3001:3001"
     env_file: .env.prod
