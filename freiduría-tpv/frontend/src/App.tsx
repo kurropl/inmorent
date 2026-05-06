@@ -1,21 +1,22 @@
 import { useState } from 'react';
 import { useOrders } from './hooks/useOrders';
+import { WaiterStation } from './stations/WaiterStation/WaiterStation';
+import { KitchenDisplay } from './stations/KitchenDisplay/KitchenDisplay';
 
-// Lazy station imports — create empty placeholder components for now
-// They will be replaced by full implementations in the next tasks
-function PlaceholderStation({ name, color }: { name: string; color: string }) {
+function ComingSoon({ name, color, icon }: { name: string; color: string; icon: string }) {
   return (
-    <div className="flex items-center justify-center h-full">
+    <div className="flex flex-col items-center justify-center h-full gap-2">
+      <span className="text-4xl">{icon}</span>
       <span className={`text-sm font-medium ${color}`}>{name}</span>
+      <span className="text-xs text-zinc-500">Próximamente...</span>
     </div>
   );
 }
 
 export default function App() {
-  const { orders, products: _products, refresh: _refresh, updateItemWeight: _updateItemWeight } = useOrders();
+  const { orders, products, refresh, updateItemWeight } = useOrders();
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
-  // Suppress unused-variable errors for state/handlers wired up in future station components
-  void _products; void _refresh; void _updateItemWeight; void activeOrderId; void setActiveOrderId;
+  void updateItemWeight; // will be used in BarScaleStation
 
   return (
     <div className="min-h-screen bg-brand-dark text-white font-sans">
@@ -34,16 +35,22 @@ export default function App() {
 
       <div className="grid grid-cols-2 grid-rows-2" style={{ height: 'calc(100vh - 56px)' }}>
         <div className="border-r border-b border-brand-border overflow-auto">
-          <PlaceholderStation name="🧑‍🍳 Camarero" color="text-brand-orange" />
+          <WaiterStation
+            orders={orders}
+            products={products}
+            activeOrderId={activeOrderId}
+            onSelectOrder={setActiveOrderId}
+            onRefresh={refresh}
+          />
         </div>
         <div className="border-b border-brand-border overflow-auto">
-          <PlaceholderStation name="🔥 Cocina KDS" color="text-red-400" />
+          <KitchenDisplay orders={orders} onRefresh={refresh} />
         </div>
         <div className="border-r border-brand-border overflow-auto">
-          <PlaceholderStation name="⚖️ Barra + Balanza" color="text-blue-400" />
+          <ComingSoon name="Barra + Balanza" color="text-blue-400" icon="⚖️" />
         </div>
         <div className="overflow-auto">
-          <PlaceholderStation name="💳 TPV / Caja" color="text-purple-400" />
+          <ComingSoon name="TPV / Caja" color="text-purple-400" icon="💳" />
         </div>
       </div>
     </div>
